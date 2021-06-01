@@ -7,6 +7,9 @@ const multer = require('multer');
 
 require('dotenv').config();
 
+const app = express();
+
+// Multer Settings
 const fileStorage = multer.diskStorage({
 	destination: (req, file, cb) => {
 		cb(null, 'images');
@@ -29,8 +32,7 @@ const filefileter = (req, file, cb) => {
 };
 
 const feedRoutes = require('./routes/feed');
-
-const app = express();
+const authRoutes = require('./routes/auth');
 
 app.use(bodyParser.json());
 app.use(
@@ -40,6 +42,7 @@ app.use('/images', express.static(path.join(__dirname, 'images')));
 
 const PORT = process.env.NODE_PORT;
 
+// CORS Setting
 app.use((req, res, next) => {
 	res.setHeader('Access-Control-Allow-Origin', '*');
 	res.setHeader(
@@ -52,11 +55,12 @@ app.use((req, res, next) => {
 });
 
 app.use('/feed', feedRoutes);
+app.use('/auth', authRoutes);
 
 app.use((error, req, res, next) => {
 	console.log(error);
-	const { message, statusCode } = error;
-	res.status(statusCode).json({ message: message });
+	const { message, statusCode, data } = error;
+	res.status(statusCode).json({ message: message, errors: data });
 });
 
 mongoose
