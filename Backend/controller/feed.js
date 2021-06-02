@@ -1,9 +1,9 @@
-const path = require('path');
-const fs = require('fs');
-
 const { validationResult } = require('express-validator');
 
 const Post = require('../models/post');
+const User = require('../models/user');
+
+const { clearImage } = require('../utils/utils');
 
 exports.getPosts = (req, res, next) => {
 	const currentPage = req.query.page || 1;
@@ -19,13 +19,11 @@ exports.getPosts = (req, res, next) => {
 				.limit(perPage);
 		})
 		.then(posts => {
-			res
-				.status(200)
-				.json({
-					message: '[POST] Post Found Sucessfully',
-					posts: posts,
-					totalItems: totalItems,
-				});
+			res.status(200).json({
+				message: '[POST] Post Found Sucessfully',
+				posts: posts,
+				totalItems: totalItems,
+			});
 		})
 		.catch(err => next(err));
 };
@@ -47,22 +45,39 @@ exports.postPost = (req, res, next) => {
 		throw error;
 	}
 	const { title, content } = req.body;
+	let creator;
 
 	const post = new Post({
 		title: title,
 		content: content,
 		imageUrl: req.file.path,
-		creator: {
-			name: 'Raman',
-		},
+		creator: req.userId,
 	});
 
 	post
 		.save()
-		.then(result => {
+		.then(() => {
+			return User.findById(req.userId);
+		})
+		.then(user => {
+			if (!user) {
+				const error = new Error('[ERROR] Something went wrong!');
+				error.statusCode = 500;
+				throw error;
+			}
+
+			creator = user;
+			user.posts.push(post);
+			return user.save();
+		})
+		.then(() => {
 			res.status(201).json({
 				message: '[SUCCESS] Post created sucessfully',
-				post: result,
+				post: post,
+				creator: {
+					_id: creator._id,
+					userName: creator.userName,
+				},
 			});
 		})
 		.catch(err => {
@@ -119,6 +134,11 @@ exports.editPost = (req, res, next) => {
 				error.statusCode = 404;
 				throw error;
 			}
+			if (post.creator.toString() !== req.userId) {
+				const error = new Error('[ERROR] Not Authorized!');
+				error.statusCode = 403;
+				throw error;
+			}
 			if (imageUrl !== post.imageUrl) {
 				clearImage(post.imageUrl);
 			}
@@ -145,22 +165,23 @@ exports.deletePost = (req, res, next) => {
 				error.statusCode = 404;
 				throw error;
 			}
-			// Authantication of user
-
+			if (post.creator.toString() !== req.userId) {
+				const error = new Error('[ERROR] Not Authorized!');
+				error.statusCode = 403;
+				throw error;
+			}
 			clearImage(post.imageUrl);
 			return Post.findByIdAndRemove(postId);
 		})
-		.then(result => {
-			console.log(result);
+		.then(() => {
+			return User.findById(req.userId);
+		})
+		.then(user => {
+			user.posts.pull(postId);
+			user.save();
+		})
+		.then(() => {
 			res.status(200).json({ message: '[SUCCESS] Post Deleted!' });
 		})
 		.catch(err => next(err));
-};
-const clearImage = filePath => {
-	filePath = path.join(__dirname, '..', filePath);
-	fs.unlink(filePath, err => {
-		if (err) {
-			console.log(err);
-		}
-	});
 };
