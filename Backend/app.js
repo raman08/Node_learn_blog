@@ -40,7 +40,7 @@ app.use(
 );
 app.use('/images', express.static(path.join(__dirname, 'images')));
 
-const PORT = process.env.NODE_PORT;
+const PORT = process.env.NODE_PORT || 8080;
 
 // CORS Setting
 app.use((req, res, next) => {
