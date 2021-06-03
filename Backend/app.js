@@ -70,8 +70,16 @@ mongoose
 		useFindAndModify: false,
 	})
 	.then(() => {
-		app.listen(PORT, () => {
+		const server = app.listen(PORT, () => {
 			console.log(`[START] http://localhost:${PORT}`);
+		});
+		const io = require('./socket').init(server, {
+			cors: true,
+			origins: ['*'],
+		});
+
+		io.on('connection', () => {
+			console.log('Client Connected');
 		});
 	})
 	.catch(err => {

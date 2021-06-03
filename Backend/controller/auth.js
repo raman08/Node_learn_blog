@@ -13,13 +13,13 @@ exports.signup = async (req, res, next) => {
 		error.data = validationErrors.array();
 		throw error;
 	}
-	const { email, userName, password } = req.body;
+	const { email, name, password } = req.body;
 
 	try {
 		const hashedPassword = await bcrypt.hash(password, 12);
 		const user = User({
 			email: email,
-			userName: userName,
+			userName: name,
 			password: hashedPassword,
 		});
 		const result = await user.save();
