@@ -4,6 +4,10 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const multer = require('multer');
+const { graphqlHTTP } = require('express-graphql');
+
+const graphqlSchema = require('./graphql/schema');
+const graphqlResolver = require('./graphql/resolver');
 
 require('dotenv').config();
 
@@ -31,9 +35,6 @@ const filefileter = (req, file, cb) => {
 	}
 };
 
-const feedRoutes = require('./routes/feed');
-const authRoutes = require('./routes/auth');
-
 app.use(bodyParser.json());
 app.use(
 	multer({ storage: fileStorage, fileFilter: filefileter }).single('image')
@@ -54,9 +55,26 @@ app.use((req, res, next) => {
 	next();
 });
 
-app.use('/feed', feedRoutes);
-app.use('/auth', authRoutes);
+app.use(
+	'/graphql',
+	graphqlHTTP({
+		schema: graphqlSchema,
+		rootValue: graphqlResolver,
+		graphiql: true,
+		customFormatErrorFn: err => {
+			if (!err.originalError) {
+				return err;
+			}
+			const message = err.message;
+			const errorCode = err.originalError.errorCode || 500;
+			const data = err.originalError.data;
 
+			return { message: message, errorCode: errorCode, data: data };
+		},
+	})
+);
+
+// Error handeling function
 app.use((error, req, res, next) => {
 	console.log(error);
 	const { message, statusCode, data } = error;
@@ -70,16 +88,8 @@ mongoose
 		useFindAndModify: false,
 	})
 	.then(() => {
-		const server = app.listen(PORT, () => {
+		app.listen(PORT, () => {
 			console.log(`[START] http://localhost:${PORT}`);
-		});
-		const io = require('./socket').init(server, {
-			cors: true,
-			origins: ['*'],
-		});
-
-		io.on('connection', () => {
-			console.log('Client Connected');
 		});
 	})
 	.catch(err => {
