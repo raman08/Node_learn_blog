@@ -9,6 +9,7 @@ const { graphqlHTTP } = require('express-graphql');
 const graphqlSchema = require('./graphql/schema');
 const graphqlResolver = require('./graphql/resolver');
 const auth = require('./middleware/auth');
+const { clearImage } = require('./utils/utils');
 
 require('dotenv').config();
 
@@ -59,6 +60,21 @@ app.use((req, res, next) => {
 });
 
 app.use(auth);
+
+app.use('/post-image', (req, res, next) => {
+	if (!req.file) {
+		return res.status(200).json({ message: 'No image Found!' });
+	}
+
+	if (req.body.oldPath) {
+		clearImage(req.body.oldPath);
+	}
+
+	return res.status(201).json({
+		message: 'Image stored Sucessfully!',
+		filePath: req.file.path,
+	});
+});
 
 app.use(
 	'/graphql',

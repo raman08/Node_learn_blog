@@ -154,17 +154,23 @@ module.exports = {
 		};
 	},
 
-	posts: async req => {
-		// if (!req.isAuth) {
-		// 	const err = new Error('User not authenticated!');
-		// 	err.errorCode = 401;
-		// 	throw err;
-		// }
+	posts: async ({ page }, req) => {
+		if (!req.isAuth) {
+			const err = new Error('User not authenticated!');
+			err.errorCode = 401;
+			throw err;
+		}
 
+		if (!page) {
+			page = 1;
+		}
+		const perPage = 2;
 		const totalPosts = await Post.find().countDocuments();
 
 		const posts = await Post.find()
 			.populate('creator', '_id name')
+			.skip((page - 1) * perPage)
+			.limit(perPage)
 			.sort({ createdAt: -1 });
 
 		return {
@@ -177,6 +183,106 @@ module.exports = {
 				};
 			}),
 			totalPosts: totalPosts,
+		};
+	},
+
+	post: async ({ id }, req) => {
+		if (!req.isAuth) {
+			const err = new Error('User not authenticated!');
+			err.errorCode = 401;
+			throw err;
+		}
+
+		const post = await Post.findById(id).populate('creator', 'name email');
+
+		if (!post) {
+			const err = new Error('No post found!');
+			err.errorCode = 404;
+			throw err;
+		}
+
+		return {
+			...post._doc,
+			_id: post._id.toString(),
+			createdAt: post.createdAt.toISOString(),
+			updatedAt: post.updatedAt.toISOString(),
+		};
+	},
+
+	updatePost: async ({ id, postInput }, req) => {
+		if (!req.isAuth) {
+			const err = new Error('User not authenticated!');
+			err.errorCode = 401;
+			throw err;
+		}
+
+		const validationErrors = [];
+
+		if (
+			validator.isEmpty(postInput.title) ||
+			!validator.isLength(postInput.title, { min: 3 })
+		) {
+			validationErrors.push({
+				message: 'Invalid Title!',
+				field: 'title',
+			});
+		}
+
+		if (
+			validator.isEmpty(postInput.content) ||
+			!validator.isLength(postInput.content, { min: 5 })
+		) {
+			validationErrors.push({
+				message: 'Invalid content!',
+				field: 'content',
+			});
+		}
+
+		if (
+			validator.isEmpty(postInput.imageUrl)
+			// validator.isUrl(postInput.imageUrl)
+		) {
+			validationErrors.push({
+				message: 'Invalid image Url!',
+				field: 'imageUrl',
+			});
+		}
+
+		if (validationErrors.length > 0) {
+			const err = new Error('[ERROR] Invalid Input!');
+			err.data = validationErrors;
+			err.errorCode = 422;
+			throw err;
+		}
+
+		const post = await Post.findById(id).populate('creator');
+
+		if (!post) {
+			const err = new Error('No post found!');
+			err.errorCode = 404;
+			throw err;
+		}
+
+		if (post.creator._id.toString() !== req.userId.toString()) {
+			const err = new Error('User not authorized');
+			err.errorCode = 403;
+			throw err;
+		}
+
+		post.title = postInput.title;
+		post.content = postInput.content;
+		if (postInput.imageUrl !== 'undefine') {
+			post.imageUrl = postInput.imageUrl;
+		}
+
+		const createdPost = await post.save();
+		console.log(createdPost);
+
+		return {
+			...createdPost._doc,
+			_id: createdPost._id.toString(),
+			createdAt: createdPost.createdAt.toISOString(),
+			updatedAt: createdPost.updatedAt.toISOString(),
 		};
 	},
 };
