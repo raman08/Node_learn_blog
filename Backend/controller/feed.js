@@ -66,7 +66,7 @@ exports.postPost = async (req, res, next) => {
 
 		creator = user;
 		user.posts.push(post);
-		await user.save();
+		const saveedUser = await user.save();
 
 		res.status(201).json({
 			message: '[SUCCESS] Post created sucessfully',
@@ -76,6 +76,8 @@ exports.postPost = async (req, res, next) => {
 				userName: creator.userName,
 			},
 		});
+
+		return saveedUser;
 	} catch (err) {
 		next(err);
 	}
